@@ -7,9 +7,6 @@ function page() {
         <div className="card">
             <FileUploadUI />
         </div>
-        <div className="card">
-            <JsonEditor />
-        </div> 
     </div>
   )
 }

@@ -6,24 +6,69 @@ import { ProgressBar } from 'primereact/progressbar';
 import { Button } from 'primereact/button';
 import { Tooltip } from 'primereact/tooltip';
 import { Tag } from 'primereact/tag';
+import JsonEditor from './JsonEditor';
+import ExcelJS from 'exceljs';
 export default function FileUploadUI() {
     const toast = useRef<Toast>(null);
     const [totalSize, setTotalSize] = useState(0);
     const fileUploadRef = useRef<FileUpload>(null);
 
-    const onTemplateSelect = (e: FileUploadSelectEvent) => {
+
+const processRow = (row: any, sheet: any, data: any) => {
+    if (row !== 1) {
+        const rowData: { [key: string]: any } = {};
+        row.eachCell((cell: any, colNumber: any) => {
+            const objectKeyFromExcel = sheet.getRow(1).getCell(colNumber).value;
+            if (typeof objectKeyFromExcel === 'string') {
+                rowData[objectKeyFromExcel] = cell.value;
+            }
+        });
+        data.push(rowData);
+    }
+
+
+};
+
+const processSheet = (sheet: any, data: any) => {
+                    sheet.eachRow((row: any) => {
+                        processRow(row, sheet, data);
+                    });
+                };
+
+const readContentFromSelectedFile = async (file: File) => {
+        const reader = new FileReader();
+        reader.readAsArrayBuffer(file);
+        if(file.name.endsWith('.xlsx') || file.name.endsWith('.xls')){
+            processExcelData(reader); 
+        }
+    }
+
+const processExcelData = async (reader:FileReader) => {
+                reader.onload = async (event)=>{
+                const buffer = event.target?.result;
+                const workbook = new ExcelJS.Workbook();
+                await workbook.xlsx.load(Buffer.from(buffer as ArrayBuffer));
+                const data: { [key: string]: any }[] = [];
+                workbook.eachSheet((sheet: any) => {
+                    processSheet(sheet, data);
+                });
+                console.log(data);
+            }
+    
+}
+
+const onTemplateSelect = async (e: FileUploadSelectEvent) => {
         let _totalSize = totalSize;
         let files = e.files;
-
         for (let file of files){
+            await readContentFromSelectedFile(file);
             _totalSize += file.size || 0;
         }
         setTotalSize(_totalSize);
     };
 
-    const onTemplateUpload = (e: FileUploadUploadEvent) => {
+const onTemplateUpload = (e: FileUploadUploadEvent) => {
         let _totalSize = 0;
-
         e.files.forEach((file) => {
             _totalSize += file.size || 0;
         });
@@ -60,7 +105,6 @@ export default function FileUploadUI() {
     };
 
     const itemTemplate = (inFile: object, props: ItemTemplateOptions) => {
-        console.log(inFile);
         const file = inFile as File;
         return (
             <div className="flex align-items-center flex-wrap">
@@ -89,14 +133,13 @@ export default function FileUploadUI() {
         );
     };
 
-    const chooseOptions = { icon: 'pi pi-fw pi-images', iconOnly: true, className: 'custom-choose-btn p-button-rounded p-button-outlined' };
+    const chooseOptions = { icon: 'pi pi-fw pi-file-import', iconOnly: true, className: 'custom-choose-btn p-button-rounded p-button-outlined' };
     const uploadOptions = { icon: 'pi pi-fw pi-cloud-upload', iconOnly: true, className: 'custom-upload-btn p-button-success p-button-rounded p-button-outlined' };
     const cancelOptions = { icon: 'pi pi-fw pi-times', iconOnly: true, className: 'custom-cancel-btn p-button-danger p-button-rounded p-button-outlined' };
 
     return (
         <div className='border-500 surface-overlay border-3 border-round'>
             <Toast ref={toast}></Toast>
-
             <Tooltip target=".custom-choose-btn" content="Choose" position="bottom" />
             <Tooltip target=".custom-upload-btn" content="Upload" position="bottom" />
             <Tooltip target=".custom-cancel-btn" content="Clear" position="bottom" />
@@ -106,6 +149,7 @@ export default function FileUploadUI() {
                 headerTemplate={headerTemplate} itemTemplate={itemTemplate} emptyTemplate={emptyTemplate}
                 chooseOptions={chooseOptions} uploadOptions={uploadOptions} cancelOptions={cancelOptions} />
                 <Button className='m-5' severity='info'> Convert </Button>
+                <JsonEditor />
                 
         </div>
     )
